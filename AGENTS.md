@@ -25,7 +25,7 @@ This file guides agents/developers collaborating in the `tg-signer` repository. 
   - Environment variables: `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`
   - Workdir file: `<workdir>/.openai_config.json`
 - The current default model in code is `gpt-4o` (see `tg_signer/ai_tools.py`).
-- The current WebUI manages signer/monitor configs and check-in records; it is not an automation config editor.
+- The WebUI manages signer/monitor configs and check-in records, and can start/stop Signer tasks using local session accounts with per-task status/logs. Monitor execution and automation editing remain CLI-only.
 
 ## Key Directories
 - `tg_signer/cli/`: CLI command definitions. The main entry is in `signer.py`; automation and monitor subcommands are in `automation.py` and `monitor.py`.
@@ -37,6 +37,7 @@ This file guides agents/developers collaborating in the `tg-signer` repository. 
 - `tg_signer/automation/models.py`: `Event`, `AutomationContext`, and `RuleStateStore`.
 - `tg_signer/ai_tools.py`: OpenAI configuration and image/text capability wrappers.
 - `tg_signer/webui/`: NiceGUI WebUI; data read/write logic is mainly in `webui/data.py`.
+- `tg_signer/webui/runtime.py`: WebUI-owned Signer subprocess lifecycle, account validation, and bounded task logs. `worker.py` reuses `UserSigner`; `task_controls.py` provides the controls.
 - `docs/automation_usage.md`: Automation usage documentation.
 - `docs/automation_design.md`: Internal automation design documentation.
 - `tests/`: pytest test suite; there is already coverage for CLI, automation, check-in record migration, and message thread id behavior.
@@ -100,6 +101,7 @@ This file guides agents/developers collaborating in the `tg-signer` repository. 
   - `<workdir>/users/<user_id>/latest_chats.json`
 - Primary check-in record database: `<workdir>/data.sqlite3`
 - Local OpenAI config: `<workdir>/.openai_config.json`
+- WebUI task logs: `<workdir>/webui_logs/` (isolated by session directory, account, and task; ignored by Git).
 - Compatible legacy check-in record layouts:
   - `<workdir>/signs/<task>/<user_id>/sign_record.json`
   - `<workdir>/signs/<task>/sign_record.json`

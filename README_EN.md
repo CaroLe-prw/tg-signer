@@ -36,6 +36,43 @@ pip install "tg-signer[gui]"
 
 ![webgui](./assets/webui.jpeg)
 
+To run locally with uv:
+
+```sh
+uv sync --extra gui
+# Log in first; use separate account names for multiple Telegram accounts.
+uv run --extra gui tg-signer --account account2 login
+uv run --extra gui tg-signer --account account2 webgui --auth-code 'your-access-password'
+```
+
+Open http://127.0.0.1:8080, save a Signer configuration, then click **打开任务控制**
+(Open task controls) or open **任务控制** (Task controls). Select an account and a saved
+task to start or stop it. For example, `sign_at: "*/5 * * * *"` schedules every five
+minutes; starting without a record for today may send immediately.
+
+- Accounts are discovered from `.session` files in `--session_dir` (the current directory
+  by default), named after the login command's `--account`. Initial login, verification
+  codes, two-factor authentication, and expired sessions still require CLI login.
+  WebUI task controls do not support `--session-string` or `--in-memory`.
+- Global `--workdir`, `--session_dir`, `--account`, and `--proxy` options are passed to
+  WebUI; place them before `webgui`. `TG_PROXY` is also supported. Workers reuse the
+  existing Telegram wrappers, rate limiting, FloodWait retries, and SQLite sign records.
+- One task per account can run in a WebUI service; a task can contain multiple chats.
+  Different accounts can run concurrently. Stop any CLI tasks or other WebUI instances
+  using the same account first; this dashboard does not take over external processes.
+- Process status and task logs refresh every two seconds. A running process does not
+  guarantee successful delivery; check the log and Telegram response. Logs are isolated
+  by workdir, session directory, account, and task under `<workdir>/webui_logs/`, with
+  approximately 1 MiB per file and three rotated backups. The viewer shows the last 300
+  lines (at most 64 KiB). Confirming **清除任务日志** (Clear task logs) clears that task's
+  log and backups without deleting sign records or stopping the task.
+- Stop and restart a task after editing its configuration. Closing the browser keeps
+  tasks running; a normal WebUI server shutdown stops its workers. Server restarts do
+  not automatically resume tasks. Historical logs remain available by selecting the
+  same account and task. Keep the host awake and connected to the network.
+- WebUI execution controls currently support **Signer tasks only**. Monitor remains a
+  configuration editor, and Automation continues to use the CLI.
+
 ### Docker
 
 #### GitHub Container Registry

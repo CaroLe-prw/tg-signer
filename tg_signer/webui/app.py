@@ -23,7 +23,9 @@ from tg_signer.webui.data import (
     save_config,
 )
 from tg_signer.webui.interactive import InteractiveSignerConfig
+from tg_signer.webui.runtime import TaskManager
 from tg_signer.webui.schema_utils import clean_schema
+from tg_signer.webui.task_controls import TaskControlBlock
 
 SIGNER_TEMPLATE: Dict[str, object] = {
     "chats": [
@@ -84,6 +86,8 @@ class UIState:
 
 
 state = UIState()
+task_manager = TaskManager()
+default_account = "my_account"
 
 
 def pretty_json(data: Dict[str, object]) -> str:
@@ -236,16 +240,23 @@ class SignerBlock(BaseConfigBlock):
         template: Dict[str, object],
         *,
         goto_records: Callable[[str], None] = lambda _task: None,
+        goto_task: Callable[[str], None] = lambda _task: None,
     ):
         self.record_btn = None
         self.record_hint = None
         self._goto_records = goto_records
+        self._goto_task = goto_task
         super().__init__("signer", template)
 
     def setup_toolbar(self):
         ui.button("交互式配置", on_click=self.open_interactive).props("outline")
 
     def setup_footer(self):
+        ui.button(
+            "打开任务控制",
+            icon="play_circle",
+            on_click=lambda: self._goto_task(self.select.value or ""),
+        )
         self.record_hint = ui.label("").classes("text-sm text-primary")
         self.record_btn = ui.button(
             "查看签到记录",
@@ -565,6 +576,7 @@ def _build_dashboard(container) -> None:
 
         with ui.tabs().classes("w-full") as tabs:
             tab_configs = ui.tab("配置管理")
+            tab_tasks = ui.tab("任务控制")
             tab_users = ui.tab("用户信息")
             tab_records = ui.tab("签到记录")
             tab_logs = ui.tab("日志")
@@ -573,6 +585,12 @@ def _build_dashboard(container) -> None:
             tabs.value = tab_records
             tabs.update()
             refresh_records.filter_input.set_value(task_name)
+
+        def goto_task(task_name: str) -> None:
+            controls.refresh()
+            if task_name in controls.task.options:
+                controls.task.set_value(task_name)
+            tabs.set_value(tab_tasks)
 
         with ui.tab_panels(tabs, value=tab_configs).classes("w-full"):
             with ui.tab_panel(tab_configs):
@@ -585,10 +603,20 @@ def _build_dashboard(container) -> None:
                 with ui.tab_panels(sub_tabs, value=tab_signer).classes("w-full"):
                     with ui.tab_panel(tab_signer):
                         refreshers.append(
-                            SignerBlock(SIGNER_TEMPLATE, goto_records=goto_records)
+                            SignerBlock(
+                                SIGNER_TEMPLATE,
+                                goto_records=goto_records,
+                                goto_task=goto_task,
+                            )
                         )
                     with ui.tab_panel(tab_monitor):
                         refreshers.append(MonitorBlock(MONITOR_TEMPLATE))
+
+            with ui.tab_panel(tab_tasks):
+                controls = TaskControlBlock(
+                    task_manager, lambda: state.workdir, default_account
+                )
+                refreshers.append(controls.refresh)
 
             with ui.tab_panel(tab_users):
                 ui.label("查看当前已登录账户信息 (users/*/me.json)。").classes(
@@ -607,6 +635,7 @@ def _build_dashboard(container) -> None:
                 ui.label("查看日志文件的最新行。").classes("text-gray-600")
                 refreshers.append(log_block())
 
+        tabs.on_value_change(lambda: controls.refresh())
         refresh_all()
 
 
@@ -677,7 +706,22 @@ def build_ui(auth_code: str = None) -> None:
     _auth_gate(root, auth_code, render_dashboard)
 
 
-def main(host: str = None, port: int = None, storage_secret: str = None) -> None:
+def main(
+    host: str = None,
+    port: int = None,
+    storage_secret: str = None,
+    *,
+    workdir: str = None,
+    session_dir: str = ".",
+    account: str = "my_account",
+    proxy: dict = None,
+) -> None:
+    global task_manager, default_account
+    if workdir is not None:
+        state.set_workdir(workdir)
+    task_manager = TaskManager(session_dir=session_dir, proxy=proxy)
+    default_account = account
+    app.on_shutdown(task_manager.close)
     ui.run(
         build_ui,
         title="TG Signer WebUI",
