@@ -662,7 +662,9 @@ def migrate_sign_records(obj, legacy_user_id: str | None, delete_json: bool):
     envvar="TG_SIGNER_GUI_AUTHCODE",
     help="授权码，也可通过环境变量`TG_SIGNER_GUI_AUTHCODE`设置。若存在则访问界面时需要正确输入。",
 )
+@click.pass_obj
 def webgui(
+    obj,
     host: str = None,
     port: int = None,
     storage_secret: str = None,
@@ -670,6 +672,19 @@ def webgui(
 ):
     from tg_signer.webui import AUTH_CODE_ENV, main
 
+    if obj["session_string"] or obj["in_memory"]:
+        raise click.UsageError(
+            "网页任务控制使用本机 .session 文件，请先通过 login 登录；"
+            "webgui 不支持 --session-string / --in-memory"
+        )
     if auth_code:
         os.environ[AUTH_CODE_ENV] = auth_code
-    main(host=host, port=port, storage_secret=storage_secret)
+    main(
+        host=host,
+        port=port,
+        storage_secret=storage_secret,
+        workdir=obj["workdir"],
+        session_dir=obj["session_dir"],
+        account=obj["account"],
+        proxy=obj["proxy"],
+    )

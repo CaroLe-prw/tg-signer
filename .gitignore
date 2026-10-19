@@ -121,5 +121,6 @@ _test*.json
 .signer
 *.session_string
 .nicegui
+webui_logs/
 
 .agent

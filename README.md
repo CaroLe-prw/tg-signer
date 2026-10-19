@@ -40,6 +40,32 @@ pip install "tg-signer[gui]"
 
 ![webgui](./assets/webui.jpeg)
 
+本地使用 uv 启动：
+
+```sh
+uv sync --extra gui
+# 首次使用先登录；可用不同名称登录多个账号
+uv run --extra gui tg-signer --account account2 login
+uv run --extra gui tg-signer --account account2 webgui --auth-code '你的访问密码'
+```
+
+打开 http://127.0.0.1:8080，在「配置管理 → Signer」保存配置，然后点击「打开任务控制」，
+或切换到「任务控制」页，选择执行账号和已保存的签到任务，点击「启动任务」或「停止任务」。
+例如 `sign_at` 填 `*/5 * * * *` 表示每 5 分钟调度；当天无记录时，启动后可能立即执行一次。
+
+- 账号选项来自 `--session_dir` 指定目录中的 `.session` 文件（默认当前目录），名称就是登录时的 `--account`。
+  首次登录、验证码和两步验证仍需通过 CLI 完成；失效的会话需重新登录。不支持在 WebUI 使用 `--session-string` / `--in-memory`。
+- WebUI 继承全局 `--workdir`、`--session_dir`、`--account` 和 `--proxy` 设置；这些参数应写在 `webgui` 前。
+  如需代理，也可以设置 `TG_PROXY`。启动的任务复用现有 Telegram 调用、限速、FloodWait 重试和 SQLite 签到记录逻辑。
+- 每个账号在本网页服务中最多运行一个任务；一个任务可以配置多个群。不同账号可同时执行。
+  请先停止终端或其他 WebUI 实例中使用同一账号的任务，本页不会接管外部进程。
+- 状态和任务日志每 2 秒刷新。状态表示进程运行情况，消息是否发送成功请查看日志和 Telegram 回复。
+  日志按工作目录、账号目录、账号和任务隔离，保存在 `<workdir>/webui_logs/`，单文件约 1 MiB，保留 3 个滚动备份。
+  页面显示最近 300 行（最多 64 KiB）；「清除任务日志」会在确认后清空当前任务日志及备份，不会删除签到记录或停止任务。
+- 修改配置后需要停止并重新启动任务。关闭浏览器不影响运行；正常退出 WebUI 服务会停止它管理的任务。
+  重启服务后不会自动恢复任务，历史任务日志仍可通过选择相同账号和任务查看。电脑需保持开机、联网且不休眠。
+- 当前网页运行控制仅支持 **Signer 签到任务**；Monitor 仍只提供配置编辑，Automation 继续使用 CLI。
+
 
 ### Docker
 
